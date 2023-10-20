@@ -30,6 +30,8 @@ struct SetupArgs{
 void* routine(void* args){
     int new_socket, valread, server_fd, addrlen, bytes_read;
     char buffer[BLOCKSIZE] = { 0 };
+    char filename[200];
+    char temp[200];
     char *connected = "Client connected successfully.";
     struct sockaddr_in address;
     
@@ -37,6 +39,7 @@ void* routine(void* args){
     server_fd = routineArgs->server_fd;
     address = routineArgs->address;
     addrlen = routineArgs->addrlen;
+    strcpy(filename, routineArgs->filename);
 
 
     if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
@@ -44,8 +47,9 @@ void* routine(void* args){
         exit(-1);
     }
 
+    // Reading hello from client
     valread = read(new_socket, buffer, 1024);
-    printf("%s\n", buffer);
+    // printf("%s\n", buffer);
     memset(buffer,'\0',sizeof(buffer));
 
     // Sending index of block
@@ -55,7 +59,15 @@ void* routine(void* args){
     send(new_socket,idx_str,strlen(idx_str),0);
 
     // Opening file
-    FILE *file = fopen(routineArgs->filename,"rb");
+    strcpy(temp, INPUTPATH);
+    strcat(temp, filename);
+
+    FILE *file = fopen(temp,"rb");
+    if(!file){
+        perror("Error in opening input folder!");
+        exit(-1);
+    }
+
     // Seting cursor
     fseek(file,(routineArgs->idx)*BLOCKSIZE*(routineArgs->num_of_blocks),SEEK_SET);
 
@@ -77,6 +89,7 @@ void* setup(void* args){
     int new_socket, valread, server_fd, addrlen;
     long file_size=0;
     char buffer[1024] = { 0 };
+    char temp[200] = { 0 };
     char *connected = "Server connected successfully.";
     char socket_req[1024];
     struct sockaddr_in address;
@@ -110,11 +123,13 @@ void* setup(void* args){
     setupArgs->filename = filename;
 
     // Opening file
-    FILE *file = fopen(filename,"rb");
+    strcpy(temp, INPUTPATH);
+    strcat(temp, filename);
 
-    if(file==NULL){
-        printf("Unable to open file!\n");
-        return NULL;
+    FILE *file = fopen(temp,"rb");
+    if(!file){
+        perror("Error in opening input folder!!");
+        exit(-1);
     }
 
     // Calculating the size of file
