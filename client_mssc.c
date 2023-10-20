@@ -25,6 +25,7 @@ void* routine(void* args){
     char output[200];
     char buffer[BLOCKSIZE] = { 0 };
     char buffer2[10] = { 0 };
+    char temp[200];
 
     struct RoutineArgs *routineArgs = (struct RoutineArgs*)args;
 
@@ -75,7 +76,15 @@ void* routine(void* args){
 
 
     sprintf(output, "Output%d", idx);
+    strcpy(temp,OUPUTPATH);
+    strcat(temp,output);
+    strcpy(output,temp);
+
     FILE *file = fopen(output,"wb");
+    if(!file){
+        perror("Error in opening output folder");
+        exit(-1);
+    }
 
     for(int i=0; i<num_of_blocks; i++){
         valread = read(client_fd, buffer, BLOCKSIZE);
@@ -149,15 +158,31 @@ void* setup(void *args){
     return NULL;
 }
 
-void merge(char *filename){
-    char output[200], ch;
+void merge(char *filename_input){
+    char filename[200], output[200], temp[200], temp2[200], ch;
     long file_size;
+
+    strcpy(filename, filename_input);
+    strcpy(temp2, OUPUTPATH);
+    strcat(temp2, filename);
+    strcpy(filename, temp2);
+
     FILE *file = fopen(filename,"wb");
+    
+    if(!file){
+        perror("Error in opening output folder");
+        exit(-1);
+    }
+
     FILE *file2;
     size_t bytes = 0; 
     static char buffer[BLOCKSIZE];
     for(int i=0; i<NUMSOCKET; i++){
         sprintf(output,"Output%d",i);
+        strcpy(temp,OUPUTPATH);
+        strcat(temp,output);
+        strcpy(output,temp);
+
         file2 = fopen(output,"rb");
         // while((ch = fgetc(file2)) != EOF)
         //     fputc(ch,file);
