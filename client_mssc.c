@@ -18,6 +18,64 @@ struct SetupArgs{
     long file_size;
 };
 
+void* routine(void* args);
+void* setup(void *args);
+void merge(char *filename_input);
+
+int main()
+{
+    int status, valread, client_fd, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
+    long file_size=0;
+    struct sockaddr_in serv_addr;
+    char* hello = "Hello from client";
+    char buffer[1024] = { 0 };
+    char filename[1024]={0};
+
+    struct SetupArgs setupArgs;
+
+    // setup
+    setup(&setupArgs);
+    file_size = setupArgs.file_size;
+    strcpy(filename,setupArgs.filename);
+    printf("\nFile size: %ld\n\n", file_size);
+
+    // calculating total numbers of blocks to be read
+    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
+
+    // calculating numbers of blocks to be read per chunk
+    num_of_blocks_per_chunk = total_num_of_blocks/NUMSOCKET;
+    num_of_blocks_per_chunk_last = total_num_of_blocks/NUMSOCKET+total_num_of_blocks%NUMSOCKET;
+
+    // creating array of buffer
+    char buffers[NUMSOCKET][BLOCKSIZE];
+    for(int i=0; i<NUMSOCKET; i++){
+        memset(buffers[i],'\0',sizeof(buffers[i]));
+    }
+
+    struct RoutineArgs routineArgs[NUMSOCKET];
+
+    pthread_t th[NUMSOCKET];
+
+    for(int i=0; i<NUMSOCKET; i++){
+        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
+        routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
+        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0 ){
+            perror("Thread creation error");
+            exit(-1);
+        }
+    }
+
+    for(int i=0; i<NUMSOCKET; i++){
+        if(pthread_join(th[i], NULL) != 0){
+            perror("Thread joining error");
+            exit(-1);
+        }
+    }
+
+    merge(OUPUTFILE);
+}
+
+
 void* routine(void* args){
     int status, valread, client_fd, num_of_blocks;
     struct sockaddr_in serv_addr;
@@ -122,6 +180,8 @@ void* setup(void *args){
     //     perror("Invalid address");
     //     exit(-1);
     // }
+
+    // ********** Server IP Address here **********
     if ( inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0 ) {
         perror("Invalid address");
         exit(-1);
@@ -196,58 +256,5 @@ void merge(char *filename_input){
                 break;
         }
     }
-}
-
-int main()
-{
-    int status, valread, client_fd, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
-    long file_size=0;
-    struct sockaddr_in serv_addr;
-    char* hello = "Hello from client";
-    char buffer[1024] = { 0 };
-    char filename[1024]={0};
-
-    struct SetupArgs setupArgs;
-
-    // setup
-    setup(&setupArgs);
-    file_size = setupArgs.file_size;
-    strcpy(filename,setupArgs.filename);
-    printf("\nFile size: %ld\n\n", file_size);
-
-    // calculating total numbers of blocks to be read
-    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
-
-    // calculating numbers of blocks to be read per chunk
-    num_of_blocks_per_chunk = total_num_of_blocks/NUMSOCKET;
-    num_of_blocks_per_chunk_last = total_num_of_blocks/NUMSOCKET+total_num_of_blocks%NUMSOCKET;
-
-    // creating array of buffer
-    char buffers[NUMSOCKET][BLOCKSIZE];
-    for(int i=0; i<NUMSOCKET; i++){
-        memset(buffers[i],'\0',sizeof(buffers[i]));
-    }
-
-    struct RoutineArgs routineArgs[NUMSOCKET];
-
-    pthread_t th[NUMSOCKET];
-
-    for(int i=0; i<NUMSOCKET; i++){
-        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
-        routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
-        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0 ){
-            perror("Thread creation error");
-            exit(-1);
-        }
-    }
-
-    for(int i=0; i<NUMSOCKET; i++){
-        if(pthread_join(th[i], NULL) != 0){
-            perror("Thread joining error");
-            exit(-1);
-        }
-    }
-
-    merge(OUPUTFILE);
 }
 
