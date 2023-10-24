@@ -9,15 +9,14 @@
 #include <time.h>
 #include "config.h"
 
+
 struct RoutineArgs{
     int idx;
     int num_of_blocks;
     int num_of_blocks_last; // improve this
-    int server_fd;
-    struct sockaddr_in address;
-    int addrlen;
+    int new_socket;
     char *filename;
-}; 
+};
 
 struct SetupArgs{
     int server_fd;
@@ -27,25 +26,155 @@ struct SetupArgs{
     char *filename;
 }; 
 
+void* routine(void* args);
+void* setup(void* args);
+
+
+int main()
+{
+    int server_fd, new_socket, valread, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
+    long file_size=0;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+    char buffer[1024] = { 0 };
+    char *hello = "Hello from server";
+    double time_spent = 0.0;
+    clock_t begin, end;
+
+    // Creating socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+        perror("Socket failed");
+        exit(-1);
+    }
+
+    // Forcefully attaching socket to the port 8080
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR , &opt, sizeof(opt))) {
+        perror("Setsockopt");
+        exit(-1);
+    }
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    // Forcefully attaching socket to the port 8080
+    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+        perror("Bind failed");
+        exit(-1);
+    }
+
+    // Server Online
+    if (listen(server_fd, 100) < 0) {
+        perror("Listen failed");
+        exit(-1);
+    }
+
+    printf("Server Online...\n");
+
+    struct SetupArgs setupArgs;
+    setupArgs.server_fd = server_fd;
+    setupArgs.address = address;
+    setupArgs.addrlen = addrlen;
+
+    // setup
+    setup(&setupArgs);
+    file_size = setupArgs.file_size;
+
+    // calculating total numbers of blocks to be read
+    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
+
+    // calculating numbers of blocks to be read per chunk
+    num_of_blocks_per_chunk = total_num_of_blocks/NUMSOCKET;
+    num_of_blocks_per_chunk_last = total_num_of_blocks/NUMSOCKET+total_num_of_blocks%NUMSOCKET;
+
+    // temp
+    printf("File size: %ld\n", file_size);
+    printf("Total number of blocks: %d\n",total_num_of_blocks);
+    printf("Per chunk: %d\n", num_of_blocks_per_chunk);
+    printf("Per chunk last: %d\n\n", num_of_blocks_per_chunk_last);
+
+
+    // creating multiple sockets
+    struct RoutineArgs routineArgs[NUMSOCKET];
+    pthread_t th[NUMSOCKET];
+    clock_t begins[NUMSOCKET], ends[NUMSOCKET];
+
+    // starting clock time
+    begin = clock();
+
+    for(int i=0; i<NUMSOCKET; i++){
+        if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            exit(-1);
+        }
+        // starting transfer clock time
+        begins[i] = clock();
+        routineArgs[i].new_socket = new_socket;
+        routineArgs[i].filename = setupArgs.filename;
+        routineArgs[i].idx = i;
+        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
+        routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
+        if(i!=NUMSOCKET-1){
+            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk;
+        }else{
+            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
+        }
+        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0) {
+            perror("Thread creation error");
+            exit(-1);
+        }
+    }
+
+    for(int i=0; i<NUMSOCKET; i++){
+        if(pthread_join(th[i], NULL) !=0) {
+            perror("Thread joining error");
+            exit(-1);
+        }
+        // ending transfer clock
+        ends[i] = clock();
+    }
+
+    // ending clock time
+    end = clock();
+
+    // closing the listening socket
+    shutdown(server_fd, SHUT_RDWR);
+
+    //With shutdown, you will still be able to receive pending data the peer already sent
+    // SHUT_RDWR will block both sending and receiving(like close)
+
+    
+    // Calculating avg transfer time(excluding accept block time)
+    double avg_time;
+    for(int i=0; i<NUMSOCKET; i++){
+        avg_time += (double)(ends[i]-begins[i])/CLOCKS_PER_SEC;
+    }
+    avg_time /= NUMSOCKET;
+
+    // Avg transfer time
+    printf("\nTransfer Time: %f\n", avg_time);
+    // Total time
+    printf("Total Time: %f\n\n", (double)(end-begin)/CLOCKS_PER_SEC);
+
+    printf("\n");
+
+    printf("Server Offline...\n");
+
+    return 0;
+}
+
+
 void* routine(void* args){
-    int new_socket, valread, server_fd, addrlen, bytes_read;
+    int new_socket, valread, bytes_read;
     char buffer[BLOCKSIZE] = { 0 };
     char filename[200];
     char temp[200];
     char *connected = "Client connected successfully.";
-    struct sockaddr_in address;
     
     struct RoutineArgs *routineArgs = (struct RoutineArgs*)args;
-    server_fd = routineArgs->server_fd;
-    address = routineArgs->address;
-    addrlen = routineArgs->addrlen;
+    new_socket = routineArgs->new_socket;
     strcpy(filename, routineArgs->filename);
-
-
-    if ((new_socket = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
-        perror("Accept failed");
-        exit(-1);
-    }
 
     // Reading hello from client
     valread = read(new_socket, buffer, 1024);
@@ -70,7 +199,6 @@ void* routine(void* args){
 
     // Seting cursor
     fseek(file,(routineArgs->idx)*BLOCKSIZE*(routineArgs->num_of_blocks),SEEK_SET);
-
 
     // Reading Block and sending block
     for(int i=0; i<(routineArgs->num_of_blocks_last); i++){
@@ -148,118 +276,4 @@ void* setup(void* args){
     fclose(file);
 
     return NULL;
-}
-
-int main()
-{
-    int server_fd, new_socket, valread, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
-    long file_size=0;
-    struct sockaddr_in address;
-    int opt = 1;
-    int addrlen = sizeof(address);
-    char buffer[1024] = { 0 };
-    char *hello = "Hello from server";
-    double time_spent = 0.0;
-    clock_t begin, end;
-
-    // Creating socket file descriptor
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
-        perror("Socket failed");
-        exit(-1);
-    }
-
-    // Forcefully attaching socket to the port 8080
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR , &opt, sizeof(opt))) {
-        perror("Setsockopt");
-        exit(-1);
-    }
-
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
-
-    // Forcefully attaching socket to the port 8080
-    if (bind(server_fd, (struct sockaddr*)&address, sizeof(address)) < 0) {
-        perror("Bind failed");
-        exit(-1);
-    }
-
-    // Server Online
-    if (listen(server_fd, 100) < 0) {
-        perror("Listen failed");
-        exit(-1);
-    }
-
-    printf("Server Online...\n");
-
-    struct SetupArgs setupArgs;
-    setupArgs.server_fd = server_fd;
-    setupArgs.address = address;
-    setupArgs.addrlen = addrlen;
-
-    // setup
-    setup(&setupArgs);
-    file_size = setupArgs.file_size;
-
-    // calculating total numbers of blocks to be read
-    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
-
-    // calculating numbers of blocks to be read per chunk
-    num_of_blocks_per_chunk = total_num_of_blocks/NUMSOCKET;
-    num_of_blocks_per_chunk_last = total_num_of_blocks/NUMSOCKET+total_num_of_blocks%NUMSOCKET;
-
-    // temp
-    printf("File size: %ld\n", file_size);
-    printf("Total number of blocks: %d\n",total_num_of_blocks);
-    printf("Per chunk: %d\n", num_of_blocks_per_chunk);
-    printf("Per chunk last: %d\n\n", num_of_blocks_per_chunk_last);
-
-
-    // creating multiple sockets
-    struct RoutineArgs routineArgs[NUMSOCKET];
-    pthread_t th[NUMSOCKET];
-
-    // start clock
-    begin = clock();
-    
-    for(int i=0; i<NUMSOCKET; i++){
-        routineArgs[i].server_fd = server_fd;
-        routineArgs[i].address = address;
-        routineArgs[i].addrlen = addrlen;
-        routineArgs[i].filename = setupArgs.filename;
-        routineArgs[i].idx = i;
-        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
-        routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
-        if(i!=NUMSOCKET-1){
-            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk;
-        }else{
-            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
-        }
-        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0) {
-            perror("Thread creation error");
-            exit(-1);
-        }
-    }
-
-    for(int i=0; i<NUMSOCKET; i++){
-        if(pthread_join(th[i], NULL) !=0) {
-            perror("Thread joining error");
-            exit(-1);
-        }
-    }
-
-    // end clock
-    end = clock();
-
-    // closing the listening socket
-    shutdown(server_fd, SHUT_RDWR);
-
-    //With shutdown, you will still be able to receive pending data the peer already sent
-    // SHUT_RDWR will block both sending and receiving(like close)
-
-    printf("\nTime: %f\n\n", (double)(end-begin)/CLOCKS_PER_SEC);
-
-    printf("Server Offline...\n");
-
-    return 0;
 }
