@@ -111,6 +111,8 @@ int main()
         // starting transfer clock time
         begins[i] = clock();
         routineArgs[i].new_socket = new_socket;
+        // replace this if below one does not workds
+        // strcpy(routineArgs[i].filename, setupArgs.filename);
         routineArgs[i].filename = setupArgs.filename;
         routineArgs[i].idx = i;
         routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;

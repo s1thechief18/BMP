@@ -46,14 +46,8 @@ int main()
     num_of_blocks_per_chunk = total_num_of_blocks/NUMSOCKET;
     num_of_blocks_per_chunk_last = total_num_of_blocks/NUMSOCKET+total_num_of_blocks%NUMSOCKET;
 
-    // creating array of buffer
-    char buffers[NUMSOCKET][BLOCKSIZE];
-    for(int i=0; i<NUMSOCKET; i++){
-        memset(buffers[i],'\0',sizeof(buffers[i]));
-    }
 
     struct RoutineArgs routineArgs[NUMSOCKET];
-
     pthread_t th[NUMSOCKET];
 
     for(int i=0; i<NUMSOCKET; i++){
@@ -249,9 +243,9 @@ void merge(char *filename_input){
         
         bytes=1;
         while(bytes > 0){
-            bytes = fread(buffer, sizeof(char), BLOCKSIZE, file2);
+            bytes = fread(buffer, sizeof(char), BLOCKSIZE, file2); 
             if(bytes > 0)
-                fwrite(buffer, sizeof(char), BLOCKSIZE, file);
+                fwrite(buffer, sizeof(char), bytes, file);              // very very important change
             else    
                 break;
         }
