@@ -15,11 +15,22 @@ struct SetupArgs{
     char *filename;
 }; 
 
+struct RoutineArgs{
+    int idx;
+    int num_of_blocks;
+    int num_of_blocks_last; // improve this
+    int client_fd;
+    char *filename;
+};
+
 void* setup(void* args);
+void* routine(void* args);
 
 int main()
 {
-    int server_fd, opt = 1, client_fd, file_size;
+    int server_fd, opt = 1, client_fd, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
+    long file_size;
+    char filename[1024] =  { 0 };
     struct sockaddr_in address;
     int addrlen = sizeof(address);
 
@@ -70,6 +81,46 @@ int main()
 
     setup(&setupArgs);
     file_size = setupArgs.file_size;
+    strcat(filename, setupArgs.filename);
+
+    // calculating total numbers of blocks to be read
+    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
+
+    // calculating numbers of blocks to be read per chunk
+    num_of_blocks_per_chunk = total_num_of_blocks/NUMTHREAD;
+    num_of_blocks_per_chunk_last = total_num_of_blocks/NUMTHREAD+total_num_of_blocks%NUMTHREAD;
+
+    printf("Total number of blocks: %d\n",total_num_of_blocks);
+    printf("Per chunk: %d\n", num_of_blocks_per_chunk);
+    printf("Per chunk last: %d\n\n", num_of_blocks_per_chunk_last);
+
+    // Creating multiple threads
+    struct RoutineArgs routineArgs[NUMTHREAD];
+    pthread_t th[NUMTHREAD];
+
+    for(int i=0; i<NUMTHREAD; i++){
+        routineArgs[i].client_fd = client_fd;
+        routineArgs[i].filename = filename;
+        routineArgs[i].idx = i;
+        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
+        if(i!=NUMTHREAD-1){
+            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk;
+        }else{
+            routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
+        }
+
+        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0) {
+            perror("Thread creation error");
+            exit(-1);
+        }
+    }
+
+    for(int i=0; i<NUMTHREAD; i++){
+        if(pthread_join(th[i], NULL) !=0) {
+            perror("Thread joining error");
+            exit(-1);
+        }
+    }
 
     // Closing the client socket
     close(client_fd);
@@ -122,6 +173,51 @@ void* setup(void* args){
     send(client_fd, socket_req, strlen(socket_req), 0);
 
     fclose(file);
+
+    return NULL;
+}
+
+void* routine(void* args){
+    int client_fd, valread, bytes_read;
+    char buffer[BLOCKSIZE] = { 0 };
+    char filename[200];
+    char temp[200];
+    
+    struct RoutineArgs *routineArgs = (struct RoutineArgs*)args;
+    client_fd = routineArgs->client_fd;
+    strcpy(filename, routineArgs->filename);
+
+    // Reading hello from client
+    valread = read(client_fd, buffer, 1024);
+    printf("%s\n", buffer);
+    memset(buffer,'\0',sizeof(buffer));
+
+    // Sending index of block
+    char idx_str[10];
+    memset(idx_str,'\0',10);
+    sprintf(idx_str,"%09d",routineArgs->idx);
+    send(client_fd,idx_str,strlen(idx_str),0);
+
+    // Opening file
+    strcpy(temp, INPUTPATH);
+    strcat(temp, filename);
+
+    FILE *file = fopen(temp,"rb");
+    if(!file){
+        perror("Error in opening input folder!");
+        exit(-1);
+    }
+
+    // Seting cursor
+    fseek(file,(routineArgs->idx)*BLOCKSIZE*(routineArgs->num_of_blocks),SEEK_SET);
+
+    // Reading Block and sending block
+    for(int i=0; i<(routineArgs->num_of_blocks_last); i++){
+        bytes_read = fread(buffer, sizeof(char), BLOCKSIZE, file);
+        send(client_fd,buffer, bytes_read, 0);
+        // printf("%d - %s\n",routineArgs->idx, buffer);
+        memset(buffer,'\0',sizeof(buffer)); // try this after commenting
+    }
 
     return NULL;
 }
