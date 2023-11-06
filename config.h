@@ -5,3 +5,4 @@
 #define OUPUTFILE "large_out.jpeg"
 #define OUPUTPATH "Output/"
 #define INPUTPATH "Input/"
+#define SERVERIP "127.0.0.1"

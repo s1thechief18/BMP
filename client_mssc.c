@@ -96,7 +96,7 @@ void* routine(void* args){
     //     perror("Invalid address");
     //     exit(-1);
     // }
-    if ( inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0 ) {
+    if ( inet_pton(AF_INET, SERVERIP, &serv_addr.sin_addr) <= 0 ) {
         perror("Invalid address");
         exit(-1);
     }
@@ -176,7 +176,7 @@ void* setup(void *args){
     // }
 
     // ********** Server IP Address here **********
-    if ( inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0 ) {
+    if ( inet_pton(AF_INET, SERVERIP, &serv_addr.sin_addr) <= 0 ) {
         perror("Invalid address");
         exit(-1);
     }
