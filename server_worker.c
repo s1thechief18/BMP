@@ -41,6 +41,11 @@ int main(){
     sscanf(buffer, "%d", &idx);
     printf("\n\nWorker ID: %d\n", idx);
     memset(buffer, '\0', sizeof(buffer));
+    valsend = send(worker_fd, "Go", 2, 0);
+    valread = read(worker_fd, buffer, 1024);
+    strcpy(worker_ip, buffer);
+    memset(buffer, '\0', sizeof(buffer));
+    printf("Worker IP: %s\n\n", worker_ip);
 
     // Send Hello to server
     sprintf(buffer, "Hello from worker-%d", idx+1);
@@ -83,9 +88,7 @@ int main(){
         exit(-1);
     }
 
-    inet_ntop(AF_INET, &address, worker_ip, INET_ADDRSTRLEN);
-
-    printf("\nWorker Server Online(%s)...\n\n", worker_ip);
+    printf("\nWorker Server Online...\n\n");
 
     // Calculating filesize
     printf("Filename: %s\n", filename);

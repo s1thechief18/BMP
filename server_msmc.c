@@ -19,6 +19,7 @@ struct SetupArgs{
 struct SetupWorkersArgs{
     int worker_fd;
     int idx;
+    char worker_ip[INET_ADDRSTRLEN];
 };
 
 void* setup(void* args);
@@ -80,6 +81,7 @@ int main(){
         strcpy(workerAddrs[i], client_ip);
 
         setupWorkersArgs[i].worker_fd = worker_fds[i];
+        strcpy(setupWorkersArgs[i].worker_ip, client_ip);
         // strcpy(setupWorkersArgs[i].filename, setupArgs.filename);
         setupWorkersArgs[i].idx = i; 
 
@@ -189,13 +191,20 @@ void* setup_workers(void* args){
     int worker_fd, idx, valread, valsend;
     char filename[200];
     char buffer[1024];
+    char worker_ip[INET_ADDRSTRLEN];
 
     struct SetupWorkersArgs *setupWorkersArgs = (struct SetupWorkersArgs*)args;
     worker_fd = setupWorkersArgs->worker_fd;
     idx =  setupWorkersArgs->idx;
+    strcpy(worker_ip, setupWorkersArgs->worker_ip);
 
     // Send worker no.
     sprintf(buffer, "%d\n", idx);
+    valsend = send(worker_fd, buffer, strlen(buffer), 0);
+    memset(buffer, '\0', sizeof(buffer));
+    valread = read(worker_fd, buffer, 2);
+    memset(buffer, '\0', sizeof(buffer));
+    strcpy(buffer, worker_ip);
     valsend = send(worker_fd, buffer, strlen(buffer), 0);
     memset(buffer, '\0', sizeof(buffer));
 
