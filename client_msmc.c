@@ -21,11 +21,12 @@ struct RoutineArgs{
 }; 
 
 void* setup(void *args);
+void* routine(void* args);
 
 int main(){
     int status, valread, client_fd, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
     long file_size = 0;
-    struct sockaddr_in serv_addr;
+    struct sockaddr_in serv_addr, worker_addr;
     char* hello = "Hello from client";
     char buffer[1024] = { 0 };
     char filename[1024] = { 0 };
@@ -43,26 +44,60 @@ int main(){
     }
     printf("\n");
 
-    // --------------------------------------------------------------------
+    // calculating total numbers of blocks to be read
+    total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
 
-    // struct RoutineArgs routineArgs[WORKERS];
-    // pthread_t th[WORKERS];
+    // calculating numbers of blocks to be read per chunk
+    num_of_blocks_per_chunk = total_num_of_blocks/WORKERS;
+    num_of_blocks_per_chunk_last = total_num_of_blocks/WORKERS+total_num_of_blocks%WORKERS;
 
-    // for(int i=0; i<WORKERS; i++){
-    //     routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
-    //     routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
-    //     if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0 ){
-    //         perror("Thread creation error");
-    //         exit(-1);
-    //     }
-    // }
+    // -----------------Worker connection---------------------------------
 
-    // for(int i=0; i<WORKERS; i++){
-    //     if(pthread_join(th[i], NULL) != 0){
-    //         perror("Thread joining error");
-    //         exit(-1);
-    //     }
-    // }
+    // Give enough time to server to shut down properly
+    sleep(2);
+
+    struct RoutineArgs routineArgs[WORKERS];
+    pthread_t th[WORKERS];
+
+    for(int i=0; i<WORKERS; i++){
+        if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            perror("Socket creation error\n");
+            exit(-1);
+        }
+
+        worker_addr.sin_family = AF_INET;
+        worker_addr.sin_port = htons(PORT);
+
+        // ********** Worker IP Address here **********
+        if ( inet_pton(AF_INET, workerAddrs[i], &worker_addr.sin_addr) <= 0 ) {
+            perror("Invalid address");
+            exit(-1);
+        }
+
+        if ((status = connect(client_fd, (struct sockaddr*)&worker_addr, sizeof(worker_addr))) < 0) {
+            perror("Connection failed");
+            exit(-1);
+        }
+
+        printf("Worker connected successfully\n");
+
+        routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;
+        routineArgs[i].num_of_blocks_last = num_of_blocks_per_chunk_last;
+        routineArgs[i].client_fd = client_fd;
+
+
+        if(pthread_create(&th[i], NULL, &routine, &routineArgs[i]) !=0 ){
+            perror("Thread creation error");
+            exit(-1);
+        }
+    }
+
+    for(int i=0; i<WORKERS; i++){
+        if(pthread_join(th[i], NULL) != 0){
+            perror("Thread joining error");
+            exit(-1);
+        }
+    }
 }
 
 void* setup(void *args){

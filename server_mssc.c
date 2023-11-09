@@ -112,7 +112,7 @@ int main()
         begins[i] = clock();
         routineArgs[i].new_socket = new_socket;
         // replace this if below one does not workds
-        // strcpy(routineArgs[i].filename, setupArgs.filename);
+        // strcpy(routineArgs[i].filename, setupArgs.filename); and char* filename -> char filename[200]
         routineArgs[i].filename = setupArgs.filename;
         routineArgs[i].idx = i;
         routineArgs[i].num_of_blocks = num_of_blocks_per_chunk;

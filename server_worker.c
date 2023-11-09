@@ -8,8 +8,18 @@
 #include <pthread.h>
 #include "config2.h"
 
+struct RoutineArgs{
+    int idx;
+    int num_of_blocks;
+    int num_of_blocks_last; // improve this
+    int new_socket;
+    char filename[200];
+};
+
+void* routine(void* args);
+
 int main(){
-    int worker_fd, client_fd, status, idx, valread, valsend, server_fd, opt = 1, total_num_of_blocks, num_of_blocks_per_chunk;
+    int worker_fd, client_fd, status, idx, valread, valsend, server_fd, opt = 1, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
     long file_size;
     struct sockaddr_in serv_addr, address;
     int addrlen = sizeof(address);
@@ -111,25 +121,81 @@ int main(){
     total_num_of_blocks = ceil(file_size/(float)BLOCKSIZE);
 
     // Calculating numbers of blocks to be read per chunk
-    if( idx == WORKERS - 1)
-        num_of_blocks_per_chunk = total_num_of_blocks/WORKERS;
-    else
-        num_of_blocks_per_chunk = total_num_of_blocks/WORKERS+total_num_of_blocks%WORKERS;
+    num_of_blocks_per_chunk = total_num_of_blocks/WORKERS;
+    num_of_blocks_per_chunk_last = total_num_of_blocks/WORKERS+total_num_of_blocks%WORKERS;
 
     printf("File size: %ld\n", file_size);
     printf("Total number of blocks: %d\n",total_num_of_blocks);
     printf("Per chunk: %d\n", num_of_blocks_per_chunk);
+    printf("Per chunk last: %d\n", num_of_blocks_per_chunk_last);
 
 
-    // // Waiting for client to accept the connection
-    // if ((client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
-    //         perror("Accept failed");
-    //         exit(-1);
-    // }
+    // Waiting for client to accept the connection
+    if ((client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+            perror("Accept failed");
+            exit(-1);
+    }
 
-    // printf("Client connected successfully\n");
+    printf("\nClient connected successfully\n");
+
+    // Transfer file to client
+    struct RoutineArgs routineArgs;
+    routineArgs.new_socket = client_fd;
+    strcpy(routineArgs.filename, filename);
+    routineArgs.idx = idx;
+    routineArgs.num_of_blocks = num_of_blocks_per_chunk;
+    routineArgs.num_of_blocks_last = num_of_blocks_per_chunk_last;
+    routine(&routineArgs);
 
     // Closing the listening socket
     shutdown(server_fd, SHUT_RDWR);
     printf("\nWorker Server Offline...\n");
+}
+
+void* routine(void* args){
+    int new_socket, valread, bytes_read;
+    char buffer[BLOCKSIZE] = { 0 };
+    char filename[200];
+    char temp[200];
+    char *connected = "Client connected successfully.";
+    
+    struct RoutineArgs *routineArgs = (struct RoutineArgs*)args;
+    new_socket = routineArgs->new_socket;
+    strcpy(filename, routineArgs->filename);
+
+    // Reading hello from client
+    valread = read(new_socket, buffer, 1024);
+    // printf("%s\n", buffer);
+    memset(buffer,'\0',sizeof(buffer));
+
+    // Sending index of block
+    char idx_str[10];
+    memset(idx_str,'\0',10);
+    sprintf(idx_str,"%09d",routineArgs->idx);
+    send(new_socket,idx_str,strlen(idx_str),0);
+
+    // Opening file
+    strcpy(temp, INPUTPATH);
+    strcat(temp, filename);
+
+    FILE *file = fopen(temp,"rb");
+    if(!file){
+        perror("Error in opening input folder!");
+        exit(-1);
+    }
+
+    // Seting cursor
+    fseek(file,(routineArgs->idx)*BLOCKSIZE*(routineArgs->num_of_blocks),SEEK_SET);
+
+    // Reading Block and sending block
+    for(int i=0; i<(routineArgs->num_of_blocks_last); i++){
+        bytes_read = fread(buffer, sizeof(char), BLOCKSIZE, file);
+        send(new_socket,buffer, bytes_read, 0);
+        // printf("%d - %s\n",routineArgs->idx, buffer);
+        memset(buffer,'\0',sizeof(buffer)); // try this after commenting
+    }
+
+    close(new_socket);
+
+    return NULL;
 }
