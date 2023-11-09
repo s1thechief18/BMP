@@ -14,6 +14,7 @@ struct SetupArgs{
     int addrlen;
     long file_size;
     char filename[200];
+    char workerAddrs[WORKERS][INET_ADDRSTRLEN];
 }; 
 
 struct SetupWorkersArgs{
@@ -104,6 +105,8 @@ int main(){
     setupArgs.server_fd = server_fd;
     setupArgs.address = address;
     setupArgs.addrlen = addrlen;
+    for(int i=0; i<WORKERS; i++)
+        strcpy(setupArgs.workerAddrs[i], workerAddrs[i]);
 
     // Setup client
     setup(&setupArgs);
@@ -130,6 +133,7 @@ void* setup(void* args){
     char *connected = "Server connected successfully.";
     char socket_req[1024];
     struct sockaddr_in address;
+    char workerAddrsStr[1024] = { 0 };
     
     struct SetupArgs *setupArgs = (struct SetupArgs*)args;
     server_fd = setupArgs->server_fd;
@@ -146,7 +150,7 @@ void* setup(void* args){
     // server connected successfully
     send(new_socket, connected, strlen(connected), 0);
 
-
+    // client connect successfully
     valread = read(new_socket, buffer, 1024);
     printf("%s\n\n", buffer);
 
@@ -180,6 +184,15 @@ void* setup(void* args){
     // sending file size
     sprintf(socket_req, "%ld", file_size);
     send(new_socket, socket_req, strlen(socket_req), 0);
+
+    // sending workeraddrs
+    valread = read(new_socket, buffer, 1024);
+    for(int i=0; i<WORKERS; i++){
+        strcat(workerAddrsStr, setupArgs->workerAddrs[i]);
+        if(i != WORKERS-1)
+            strcat(workerAddrsStr," ");
+    }
+    send(new_socket, workerAddrsStr, strlen(workerAddrsStr), 0); 
 
     close(new_socket);
     fclose(file);

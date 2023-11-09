@@ -9,9 +9,10 @@
 #include "config2.h"
 
 int main(){
-    int worker_fd, status, idx, valread, valsend, server_fd, opt = 1, total_num_of_blocks, num_of_blocks_per_chunk;
+    int worker_fd, client_fd, status, idx, valread, valsend, server_fd, opt = 1, total_num_of_blocks, num_of_blocks_per_chunk;
     long file_size;
     struct sockaddr_in serv_addr, address;
+    int addrlen = sizeof(address);
     char buffer[1024] = "Hello from worker", filename[200] = { 0 }, temp[200] = { 0 }, worker_ip[INET_ADDRSTRLEN];
     
 
@@ -118,6 +119,15 @@ int main(){
     printf("File size: %ld\n", file_size);
     printf("Total number of blocks: %d\n",total_num_of_blocks);
     printf("Per chunk: %d\n", num_of_blocks_per_chunk);
+
+
+    // // Waiting for client to accept the connection
+    // if ((client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrlen)) < 0) {
+    //         perror("Accept failed");
+    //         exit(-1);
+    // }
+
+    // printf("Client connected successfully\n");
 
     // Closing the listening socket
     shutdown(server_fd, SHUT_RDWR);

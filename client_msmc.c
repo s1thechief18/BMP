@@ -11,6 +11,7 @@
 struct SetupArgs{
     char *filename;
     long file_size;
+    char workerAddrs[WORKERS][INET_ADDRSTRLEN];
 };
 
 struct RoutineArgs{
@@ -28,13 +29,19 @@ int main(){
     char* hello = "Hello from client";
     char buffer[1024] = { 0 };
     char filename[1024] = { 0 };
+    char workerAddrs[WORKERS][INET_ADDRSTRLEN];
 
     // Setup
     struct SetupArgs setupArgs;
     setup(&setupArgs);
     file_size = setupArgs.file_size;
     strcpy(filename,setupArgs.filename);
-    printf("File size: %ld\n\n", file_size);
+    printf("File size: %ld\n", file_size);
+    for(int i=0; i<WORKERS; i++){
+        strcpy(workerAddrs[i], setupArgs.workerAddrs[i]);
+        printf("Worker %d - %s\n", i, workerAddrs[i]);
+    }
+    printf("\n");
 
     // --------------------------------------------------------------------
 
@@ -111,6 +118,14 @@ void* setup(void *args){
     sscanf(buffer,"%ld", &file_size);
     setupArgs->file_size = file_size;
     setupArgs->filename = filename;
+    memset(buffer, '\0', sizeof(buffer));
+
+    // Recieve worker addrs
+    send(client_fd, "Go", 2, 0);
+    valread = read(client_fd, buffer, 1024);
+    for(int i=0; i<WORKERS; i++){
+        sscanf(buffer, "%s", setupArgs->workerAddrs[i]);
+    }
 
     // closing the connected socket
     close(client_fd);
