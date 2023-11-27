@@ -109,6 +109,15 @@ int main(){
 
     printf("\nTransfer time: %f\n\n", (double)(end - begin)/CLOCKS_PER_SEC);
 
+    // Add result to result_file    
+    FILE *file = fopen("Result_File.csv","a");
+    if(!file){
+        perror("Error in opening output folder");
+        exit(-1);
+    }
+
+    fprintf(file, "%s,%d,%d,%d\n", filename, BLOCKSIZE, BUFFERSIZE, WORKERS);
+
 }
 
 void* setup(void *args){
@@ -174,7 +183,7 @@ void* setup(void *args){
     }
 
     // uncomment for 2nd worker
-    strcpy(setupArgs->workerAddrs[1], "10.100.63.31");
+    // strcpy(setupArgs->workerAddrs[1], "10.100.63.31");
 
     // closing the connected socket
     close(client_fd);
