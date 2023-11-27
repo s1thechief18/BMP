@@ -28,8 +28,8 @@ int main(){
     long file_size = 0;
     struct sockaddr_in serv_addr, worker_addr;
     char* hello = "Hello from client";
-    char buffer[1024] = { 0 };
-    char filename[1024] = { 0 };
+    char buffer[BUFFERSIZE] = { 0 };
+    char filename[BUFFERSIZE] = { 0 };
     char workerAddrs[WORKERS][INET_ADDRSTRLEN];
     clock_t begin, end;
     double transfer_time = 0.0;
@@ -116,7 +116,7 @@ void* setup(void *args){
     long file_size=0;
     struct sockaddr_in serv_addr;
     char *connected="Client connected successfully.";
-    char buffer[1024] = { 0 };
+    char buffer[BUFFERSIZE] = { 0 };
     struct SetupArgs *setupArgs = (struct SetupArgs*)args;
 
     if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -148,19 +148,19 @@ void* setup(void *args){
     // client connected successfully
     send(client_fd, connected, strlen(connected), 0);
 
-    valread = read(client_fd, buffer, 1024);
+    valread = read(client_fd, buffer, BUFFERSIZE);
     printf("%s\n\n", buffer);
 
     // Enter filename to be send
-    char filename[1024];
+    char filename[BUFFERSIZE];
     memset(buffer,'\0',sizeof(buffer));
-    valread = read(client_fd, buffer, 1024);
+    valread = read(client_fd, buffer, BUFFERSIZE);
     printf("%s\n", buffer);
     scanf("%s", filename);
     send(client_fd, filename, strlen(filename), 0);
 
     // Recieve file size
-    valread = read(client_fd, buffer, 1024);
+    valread = read(client_fd, buffer, BUFFERSIZE);
     sscanf(buffer,"%ld", &file_size);
     setupArgs->file_size = file_size;
     setupArgs->filename = filename;
@@ -168,7 +168,7 @@ void* setup(void *args){
 
     // Recieve worker addrs
     send(client_fd, "Go", 2, 0);
-    valread = read(client_fd, buffer, 1024);
+    valread = read(client_fd, buffer, BUFFERSIZE);
     for(int i=0; i<WORKERS; i++){
         sscanf(buffer, "%s", setupArgs->workerAddrs[i]);
     }

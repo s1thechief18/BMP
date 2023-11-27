@@ -23,7 +23,7 @@ int main(){
     long file_size;
     struct sockaddr_in serv_addr, address;
     int addrlen = sizeof(address);
-    char buffer[1024] = "Hello from worker", filename[200] = { 0 }, temp[200] = { 0 }, worker_ip[INET_ADDRSTRLEN];
+    char buffer[BUFFERSIZE] = "Hello from worker", filename[200] = { 0 }, temp[200] = { 0 }, worker_ip[INET_ADDRSTRLEN];
     
 
     if ((worker_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -48,12 +48,12 @@ int main(){
     printf("Server connected successfully!\n");
 
     // Read worker no.
-    valread = read(worker_fd, buffer, 1024);
+    valread = read(worker_fd, buffer, BUFFERSIZE);
     sscanf(buffer, "%d", &idx);
     printf("\n\nWorker ID: %d\n", idx);
     memset(buffer, '\0', sizeof(buffer));
     valsend = send(worker_fd, "Go", 2, 0);
-    valread = read(worker_fd, buffer, 1024);
+    valread = read(worker_fd, buffer, BUFFERSIZE);
     strcpy(worker_ip, buffer);
     memset(buffer, '\0', sizeof(buffer));
     printf("Worker IP: %s\n\n", worker_ip);
@@ -65,7 +65,7 @@ int main(){
 
     // Wait for message from server to start worker as server
     printf("Waiting for server to start server...\n");
-    valread = read(worker_fd, filename, 1024);
+    valread = read(worker_fd, filename, BUFFERSIZE);
     close(worker_fd);
 
     // Give enough time to server to shut down properly
@@ -164,7 +164,7 @@ void* routine(void* args){
     strcpy(filename, routineArgs->filename);
 
     // Reading hello from client
-    valread = read(new_socket, buffer, 1024);
+    valread = read(new_socket, buffer, BUFFERSIZE);
     // printf("%s\n", buffer);
     memset(buffer,'\0',sizeof(buffer));
 

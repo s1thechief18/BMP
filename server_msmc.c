@@ -31,7 +31,7 @@ int main(){
     long file_size = 0;
     struct sockaddr_in address;
     int opt = 1;
-    char buffer[1024] = { 0 }, filename[200] = { 0 };
+    char buffer[BUFFERSIZE] = { 0 }, filename[200] = { 0 };
     int addrlen = sizeof(address);
 
     // Creating socket file descriptor
@@ -128,12 +128,12 @@ int main(){
 void* setup(void* args){
     int new_socket, valread, server_fd, addrlen;
     long file_size=0;
-    char buffer[1024] = { 0 };
+    char buffer[BUFFERSIZE] = { 0 };
     char temp[200] = { 0 };
     char *connected = "Server connected successfully.";
-    char socket_req[1024];
+    char socket_req[BUFFERSIZE];
     struct sockaddr_in address;
-    char workerAddrsStr[1024] = { 0 };
+    char workerAddrsStr[BUFFERSIZE] = { 0 };
     
     struct SetupArgs *setupArgs = (struct SetupArgs*)args;
     server_fd = setupArgs->server_fd;
@@ -151,15 +151,15 @@ void* setup(void* args){
     send(new_socket, connected, strlen(connected), 0);
 
     // client connect successfully
-    valread = read(new_socket, buffer, 1024);
+    valread = read(new_socket, buffer, BUFFERSIZE);
     printf("%s\n\n", buffer);
 
     // Receive filename to be send
-    char filename[1024]={0};
+    char filename[BUFFERSIZE]={0};
     char *request_filename="Enter filename to be send:";
     send(new_socket, request_filename, strlen(request_filename), 0);
     printf("Waiting to receive filename...\n");
-    valread = read(new_socket, filename, 1024);
+    valread = read(new_socket, filename, BUFFERSIZE);
     printf("Filename to be send: %s\n\n", filename);
     strcpy(setupArgs->filename, filename);
 
@@ -186,7 +186,7 @@ void* setup(void* args){
     send(new_socket, socket_req, strlen(socket_req), 0);
 
     // sending workeraddrs
-    valread = read(new_socket, buffer, 1024);
+    valread = read(new_socket, buffer, BUFFERSIZE);
     for(int i=0; i<WORKERS; i++){
         strcat(workerAddrsStr, setupArgs->workerAddrs[i]);
         if(i != WORKERS-1)
@@ -203,7 +203,7 @@ void* setup(void* args){
 void* setup_workers(void* args){
     int worker_fd, idx, valread, valsend;
     char filename[200];
-    char buffer[1024];
+    char buffer[BUFFERSIZE];
     char worker_ip[INET_ADDRSTRLEN];
 
     struct SetupWorkersArgs *setupWorkersArgs = (struct SetupWorkersArgs*)args;
@@ -222,7 +222,7 @@ void* setup_workers(void* args){
     memset(buffer, '\0', sizeof(buffer));
 
     // Read Hello from worker
-    valread = read(worker_fd, buffer, 1024);
+    valread = read(worker_fd, buffer, BUFFERSIZE);
     printf("%s\n", buffer);
 
     return NULL;
