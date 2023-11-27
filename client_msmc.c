@@ -31,6 +31,8 @@ int main(){
     char buffer[1024] = { 0 };
     char filename[1024] = { 0 };
     char workerAddrs[WORKERS][INET_ADDRSTRLEN];
+    clock_t begin, end;
+    double transfer_time = 0.0;
 
     // Setup
     struct SetupArgs setupArgs;
@@ -58,6 +60,9 @@ int main(){
 
     struct RoutineArgs routineArgs[WORKERS];
     pthread_t th[WORKERS];
+
+    // Start clock time
+    begin = clock();
 
     for(int i=0; i<WORKERS; i++){
         if ((client_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -98,6 +103,12 @@ int main(){
             exit(-1);
         }
     }
+
+    // End clock time
+    end = clock();
+
+    printf("\nTransfer time: %f\n\n", (double)(end - begin)/CLOCKS_PER_SEC);
+
 }
 
 void* setup(void *args){
@@ -161,6 +172,9 @@ void* setup(void *args){
     for(int i=0; i<WORKERS; i++){
         sscanf(buffer, "%s", setupArgs->workerAddrs[i]);
     }
+
+    // uncomment for 2nd worker
+    strcpy(setupArgs->workerAddrs[1], "10.100.63.31");
 
     // closing the connected socket
     close(client_fd);
