@@ -88,7 +88,7 @@ Wait for file to get transfered successfully
 
 <hr>
 
-If you have any queries then react me out at "s1thechief18@gmail.com"
+If you have any queries then reach me out at "s1thechief18@gmail.com"
 
 
 
