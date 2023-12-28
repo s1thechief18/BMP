@@ -22,6 +22,7 @@ struct RoutineArgs{
 
 void* setup(void *args);
 void* routine(void* args);
+void merge(char *filename_input);
 
 int main(){
     int status, valread, client_fd, total_num_of_blocks, num_of_blocks_per_chunk, num_of_blocks_per_chunk_last;
@@ -118,6 +119,7 @@ int main(){
 
     fprintf(file, "%s,%d,%d,%d\n", filename, BLOCKSIZE, BUFFERSIZE, WORKERS);
 
+    merge(OUPUTFILE);
 }
 
 void* setup(void *args){
@@ -246,4 +248,44 @@ void* routine(void* args){
     fclose(file);
 
     return NULL;
+}
+
+void merge(char *filename_input){
+    char filename[200], output[200], temp[200], temp2[200], ch;
+    long file_size;
+
+    strcpy(filename, filename_input);
+    strcpy(temp2, OUPUTPATH);
+    strcat(temp2, filename);
+    strcpy(filename, temp2);
+
+    FILE *file = fopen(filename,"wb");
+    
+    if(!file){
+        perror("Error in opening output folder");
+        exit(-1);
+    }
+
+    FILE *file2;
+    size_t bytes = 0; 
+    static char buffer[BLOCKSIZE];
+    for(int i=0; i<WORKERS; i++){
+        sprintf(output,"Output%d",i);
+        strcpy(temp,OUPUTPATH);
+        strcat(temp,output);
+        strcpy(output,temp);
+
+        file2 = fopen(output,"rb");
+        // while((ch = fgetc(file2)) != EOF)
+        //     fputc(ch,file);
+        
+        bytes=1;
+        while(bytes > 0){
+            bytes = fread(buffer, sizeof(char), BLOCKSIZE, file2); 
+            if(bytes > 0)
+                fwrite(buffer, sizeof(char), bytes, file);              // very very important change
+            else    
+                break;
+        }
+    }
 }
