@@ -86,6 +86,10 @@ Wait for file to get transfered successfully
   <figcaption>Fig.4 - Output Files</figcaption>
 </figure>
 
+<hr>
+
+If you have any queries then react me out at "s1thechief18@gmail.com"
+
 
 
 
