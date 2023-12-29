@@ -52,7 +52,7 @@ Command: "gcc server_worker.c -pthread -lm -o worker && ./worker"
 
 ### Step 5:
 
-Connect client to server
+Connect client to server <br>
 Command: "gcc client_msmc.c -pthread -lm -o client && ./client"
 
 <figure>
